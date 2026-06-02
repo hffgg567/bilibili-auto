@@ -1,12 +1,7 @@
-# Bilibili 每日自动任务 - GitHub Actions 工作流
-# 每天北京时间 06:00 自动执行（UTC 22:00）
-# 支持手动触发
- 
 name: Bilibili Daily Task
- 
+
 on:
   schedule:
-    # UTC 22:00 = 北京时间 06:00
     - cron: '0 22 * * *'
   workflow_dispatch:
     inputs:
@@ -14,7 +9,7 @@ on:
         description: '强制执行'
         required: false
         default: 'true'
- 
+
 jobs:
   bilibili-daily:
     runs-on: ubuntu-latest
@@ -22,18 +17,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
- 
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      - name: Clear npm cache
-        run: npm cache clean --force
-  
+
+      - name: Clean npm cache and modules
+        run: |
+          npm cache clean --force
+          rm -rf node_modules
+          rm -f package-lock.json
+   
       - name: Install dependencies
-        run: npm install
- 
+        run: npm install --prefer-offline --no-audit
+
       - name: Run Bilibili Daily Task
         env:
           SESSDATA: ${{ secrets.SESSDATA }}
@@ -46,7 +45,7 @@ jobs:
           PUSH_KEY: ${{ secrets.PUSH_KEY }}
           PUSH_TYPE: ${{ secrets.PUSH_TYPE }}
         run: node bilibili.js
- 
+
       - name: Cleanup
         if: always()
         run: echo "Task completed at $(date)"
