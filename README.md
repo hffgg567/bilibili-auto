@@ -37,7 +37,7 @@
 | Secret 名 | 说明 |
 |-----------|------|
 | `SESSDATA` | B站登录 Cookie 中的 SESSDATA |
-| `BILI_JCT` | 空 | CSRF Token（投币/分享需要） |
+| `BILI_JCT` |  CSRF Token（投币/分享需要） |
 
 #### 可选配置
 
