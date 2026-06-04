@@ -37,12 +37,12 @@
 | Secret 名 | 说明 |
 |-----------|------|
 | `SESSDATA` | B站登录 Cookie 中的 SESSDATA |
+| `BILI_JCT` | 空 | CSRF Token（投币/分享需要） |
 
 #### 可选配置
 
 | Secret 名 | 默认值 | 说明 |
 |-----------|--------|------|
-| `BILI_JCT` | 空 | CSRF Token（投币/分享需要） |
 | `DEDEUSERID` | 空 | 用户ID |
 | `DEDENAME` | 空 | 用户名 |
 | `COIN_NUM` | 0 | 每日投币数量（0-5，0=不投币） |
