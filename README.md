@@ -1,8 +1,8 @@
-# Bilibili 每日自动签到 & 观看视频
+# Bilibili 每日自动任务
 
 [![Run Bilibili Daily Task](https://github.com/hffgg567/bilibili-auto/actions/workflows/bilibili.yml/badge.svg)](https://github.com/hffgg567/bilibili-auto/actions/workflows/bilibili.yml)
 
-基于 GitHub Actions 的 Bilibili 每日自动任务，每天定时执行签到、观看视频、投币等操作。
+基于 GitHub Actions 的 Bilibili 每日自动任务，每天定时执行观看视频、分享视频、投币等操作。
 
 ## ✨ 功能
 
@@ -37,7 +37,7 @@
 | Secret 名 | 说明 |
 |-----------|------|
 | `SESSDATA` | B站登录 Cookie 中的 SESSDATA |
-| `BILI_JCT` |  CSRF Token（投币/分享需要） |
+| `BILI_JCT` | CSRF Token（分享/投币**必需**） |
 
 #### 可选配置
 
