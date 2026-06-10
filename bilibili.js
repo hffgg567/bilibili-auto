@@ -12,10 +12,34 @@ const axios = require('axios');
 // ============================================================
 
 // 从环境变量读取 Cookie
+// 优先使用完整 Cookie 字符串 BILI_COOKIE，否则用分字段拼装
+const BILI_COOKIE = process.env.BILI_COOKIE || '';
 const SESSDATA = process.env.SESSDATA || '';
 const BILI_JCT = process.env.BILI_JCT || '';
 const DEDEUSERID = process.env.DEDEUSERID || '';
 const DEDENAME = process.env.DEDENAME || '';
+// 风控 cookie（避免 403 账号异常，从浏览器 F12 → Application → Cookies 获取）
+const BUVID3 = process.env.BUVID3 || '';
+const BUVID4 = process.env.BUVID4 || '';
+const B_NUT = process.env.B_NUT || '';
+const BILI_UUID = process.env.BILI_UUID || '';
+const FEEDLIVE = process.env.FEEDLIVE || '';
+
+// 构建 Cookie 字符串
+const COOKIE_STR = BILI_COOKIE || [
+  SESSDATA && `SESSDATA=${SESSDATA}`,
+  BILI_JCT && `bili_jct=${BILI_JCT}`,
+  DEDEUSERID && `DedeUserID=${DEDEUSERID}`,
+  DEDENAME && `DedeUserName=${encodeURIComponent(DEDENAME)}`,
+  BUVID3 && `buvid3=${BUVID3}`,
+  BUVID4 && `buvid4=${BUVID4}`,
+  B_NUT && `b_nut=${B_NUT}`,
+  BILI_UUID && `_uuid=${BILI_UUID}`,
+  FEEDLIVE && `feeds-live=${FEEDLIVE}`,
+].filter(Boolean).join('; ');
+
+// 确保 bili_jct 可用（投币/分享需要），从完整 Cookie 中提取
+const JCT = BILI_JCT || (COOKIE_STR.match(/bili_jct=([^;]+)/) || [])[1] || '';
 
 // 推送通知（Server酱/PushPlus等，可选）
 const PUSH_KEY = process.env.PUSH_KEY || '';
@@ -37,7 +61,8 @@ const WATCH_LIST = (process.env.WATCH_LIST || '').split(',').filter(Boolean);
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Referer': 'https://www.bilibili.com',
-  'Cookie': `SESSDATA=${SESSDATA}; bili_jct=${BILI_JCT}; DedeUserID=${DEDEUSERID}; DedeUserName=${DEDENAME}`,
+  'Origin': 'https://www.bilibili.com',
+  'Cookie': COOKIE_STR,
 };
 
 const api = axios.create({
@@ -191,8 +216,8 @@ async function watchVideos() {
  */
 async function shareVideo() {
   try {
-    if (!BILI_JCT) {
-      log('❌ 分享视频: 缺少 bili_jct (CSRF Token)，请配置 BILI_JCT');
+    if (!JCT) {
+      log('❌ 分享视频: 缺少 bili_jct (CSRF Token)，Cookie 中需包含 bili_jct');
       return;
     }
 
@@ -221,7 +246,7 @@ async function shareVideo() {
       ramval: '15',
       source: 'web_normal',
       ga: '1',
-      csrf: BILI_JCT,
+      csrf: JCT,
     }).toString(), {
       headers: {
         ...HEADERS,
@@ -268,7 +293,7 @@ async function coinAdd() {
         ramval: '15',
         source: 'web_normal',
         ga: '1',
-        csrf: BILI_JCT,
+        csrf: JCT,
       }).toString(), {
         headers: {
           ...HEADERS,
