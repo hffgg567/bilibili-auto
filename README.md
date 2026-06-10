@@ -36,8 +36,7 @@
 
 | Secret 名 | 说明 |
 |-----------|------|
-| `SESSDATA` | B站登录 Cookie 中的 SESSDATA |
-| `BILI_JCT` | CSRF Token（分享/投币**必需**） |
+| `BILI_COOKIE` | **推荐**：从浏览器复制的完整 Cookie 字符串（避免风控），包含 buvid3/buvid4 等 |
 
 #### 可选配置
 
