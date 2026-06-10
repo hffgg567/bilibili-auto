@@ -26,7 +26,7 @@ const BILI_UUID = process.env.BILI_UUID || '';
 const FEEDLIVE = process.env.FEEDLIVE || '';
 
 // 构建 Cookie 字符串
-const COOKIE_STR = BILI_COOKIE || [
+const cookieParts = [
   SESSDATA && `SESSDATA=${SESSDATA}`,
   BILI_JCT && `bili_jct=${BILI_JCT}`,
   DEDEUSERID && `DedeUserID=${DEDEUSERID}`,
@@ -36,10 +36,32 @@ const COOKIE_STR = BILI_COOKIE || [
   B_NUT && `b_nut=${B_NUT}`,
   BILI_UUID && `_uuid=${BILI_UUID}`,
   FEEDLIVE && `feeds-live=${FEEDLIVE}`,
-].filter(Boolean).join('; ');
+].filter(Boolean);
+
+const COOKIE_STR = BILI_COOKIE || cookieParts.join('; ');
 
 // 确保 bili_jct 可用（投币/分享需要），从完整 Cookie 中提取
 const JCT = BILI_JCT || (COOKIE_STR.match(/bili_jct=([^;]+)/) || [])[1] || '';
+
+// Cookie 字段诊断（仅显示是否配置，不泄露值）
+function diagnoseCookie() {
+  const fields = {
+    SESSDATA: SESSDATA || (BILI_COOKIE && /SESSDATA=/.test(BILI_COOKIE)),
+    bili_jct: BILI_JCT || (BILI_COOKIE && /bili_jct=/.test(BILI_COOKIE)),
+    DedeUserID: DEDEUSERID || (BILI_COOKIE && /DedeUserID=/.test(BILI_COOKIE)),
+    buvid3: BUVID3 || (BILI_COOKIE && /buvid3=/.test(BILI_COOKIE)),
+    buvid4: BUVID4 || (BILI_COOKIE && /buvid4=/.test(BILI_COOKIE)),
+    b_nut: B_NUT || (BILI_COOKIE && /b_nut=/.test(BILI_COOKIE)),
+    _uuid: BILI_UUID || (BILI_COOKIE && /_uuid=/.test(BILI_COOKIE)),
+    feeds_live: FEEDLIVE || (BILI_COOKIE && /feeds-live=/.test(BILI_COOKIE)),
+  };
+  const present = Object.entries(fields).filter(([,v]) => v).map(([k]) => k);
+  const missing = Object.entries(fields).filter(([,v]) => !v).map(([k]) => k);
+  log(`🔑 Cookie 诊断 → 已配置 [${present.join(', ')}]`);
+  if (missing.length > 0) {
+    log(`⚠️  Cookie 诊断 → 未配置 [${missing.join(', ')}]（缺失 buvid3/buvid4/b_nut/_uuid 可能导致 -403 风控拦截）`);
+  }
+}
 
 // 推送通知（Server酱/PushPlus等，可选）
 const PUSH_KEY = process.env.PUSH_KEY || '';
@@ -256,6 +278,44 @@ async function shareVideo() {
 
     if (res.data.code === 0) {
       log(`✅ 分享视频成功: ${video.title}`);
+    } else if (res.data.code === -403 || res.data.code === 403) {
+      log(`❌ 分享视频被风控拦截: [-403] ${res.data.message}`);
+      log(`💡 提示: 请在 GitHub Secrets 中补全以下字段: BUVID3, BUVID4, B_NUT, BILI_UUID`);
+      log(`   获取方法: 浏览器 F12 → Application → Cookies → bilibili.com`);
+      // 风控重试：等待后重新获取视频再试一次
+      log('⏳ 等待 10 秒后重试...');
+      await sleep(10000);
+      try {
+        const retryRecommends = await getRecommendVideos();
+        let retryVideo = null;
+        for (const bvid of retryRecommends) {
+          retryVideo = await getVideoInfo(bvid);
+          if (retryVideo) break;
+        }
+        if (retryVideo) {
+          const retryRes = await api.post('https://api.bilibili.com/x/web-interface/share/add', new URLSearchParams({
+            aid: String(retryVideo.aid),
+            bvid: retryVideo.bvid,
+            eab_x: '2',
+            ramval: '15',
+            source: 'web_normal',
+            ga: '1',
+            csrf: JCT,
+          }).toString(), {
+            headers: {
+              ...HEADERS,
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+          });
+          if (retryRes.data.code === 0) {
+            log(`✅ 重试分享成功: ${retryVideo.title}`);
+          } else {
+            log(`❌ 重试分享仍失败: [${retryRes.data.code}] ${retryRes.data.message}`);
+          }
+        }
+      } catch (retryErr) {
+        log(`❌ 重试分享异常: ${retryErr.message}`);
+      }
     } else {
       log(`❌ 分享视频失败: [${res.data.code}] ${res.data.message}`);
     }
@@ -388,13 +448,22 @@ async function main() {
   log('🚀 Bilibili 每日任务开始');
   log('━━━━━━━━━━━━━━━━━━━━━━━━');
 
-  if (!SESSDATA) {
-    log('❌ 未配置 SESSDATA，请设置 GitHub Secrets');
+  // Cookie 诊断
+  diagnoseCookie();
+
+  if (!SESSDATA && !BILI_COOKIE) {
+    log('❌ 未配置 SESSDATA 或 BILI_COOKIE，请设置 GitHub Secrets');
     process.exit(1);
   }
 
-  // 查询用户信息
-  await getUserInfo();
+  // 验证 Cookie 有效性
+  log('🔍 验证 Cookie 有效性...');
+  const userInfo = await getUserInfo();
+  if (!userInfo) {
+    log('❌ Cookie 无效或已过期，请重新获取并更新 Secrets');
+    await notify('B站签到失败', 'Cookie 无效或已过期，请重新获取');
+    process.exit(1);
+  }
 
   log('');
   log('📋 === 观看视频 ===');
